@@ -13,7 +13,7 @@ VPS **Hostinger** :
 ```text
 hôte      <VPS_PUBLIC_IP> (nom d'hôte système : <VPS_HOSTNAME>)
 user      pyrorisk
-clé       ~/.ssh/pyrorisk_hostinger_ed25519
+clé       ~/.ssh/<VPS_SSH_KEY_NAME>
 répertoire /opt/pyrorisk (pas un clone git — arbre de fichiers déployé par rsync)
 disque    96 Go total (et non 150 Go) — 46 Go libres avant intervention (53 % utilisé)
 ```
