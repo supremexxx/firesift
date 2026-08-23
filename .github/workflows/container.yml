@@ -25,14 +25,7 @@ jobs:
       - uses: docker/metadata-action@v5
         id: meta
         with:
-          # Dual-published during the Erytheon -> FireSift GitHub repository
-          # rename transition so `docker compose pull` keeps working on any
-          # deployment still pinned to the legacy `erytheon` image name.
-          # Once no deployment depends on the legacy name, drop the first
-          # line and switch back to the dynamic `ghcr.io/${{ github.repository }}`.
-          images: |
-            ghcr.io/supremexxx/erytheon
-            ghcr.io/supremexxx/firesift
+          images: ghcr.io/supremexxx/firesift
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag

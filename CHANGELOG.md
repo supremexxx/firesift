@@ -45,11 +45,9 @@ All notable changes to FireSift are documented in this file.
   dashboard, scientific console, and client console UI copy, crate doc
   comments, and OCI build-time labels — completing the rename begun in
   `v0.5.0`'s repository/documentation-level changes.
-- `.github/workflows/container.yml` dual-publishes container images to
-  both `ghcr.io/supremexxx/erytheon` and `ghcr.io/supremexxx/firesift`
-  during the transition, so deployments still pinned to the legacy image
-  name keep working; the legacy line is meant to be dropped once nothing
-  depends on it.
+- `.github/workflows/container.yml` no longer dual-publishes to
+  `ghcr.io/supremexxx/erytheon`; it now publishes only
+  `ghcr.io/supremexxx/firesift`, closing out the rename transition.
 - `docs/scientific-limitations.md` updated to reflect BLUE as a partial,
   not absent, prospective-validation foundation.
 - `docs/architecture.md`, `docs/api.md`, `ROADMAP.md`, and `README.md`

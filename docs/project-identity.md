@@ -14,13 +14,12 @@ BLUE). Use this name in anything user- or contributor-facing.
 
 ### Erytheon — historical name, persists as scientific/runtime identifiers
 
-Erytheon was the project's name before the FireSift rename. It is
-**public** in one remaining, deliberate place — `.github/workflows/container.yml`
-dual-publishes container images to both `ghcr.io/supremexxx/erytheon`
-and `ghcr.io/supremexxx/firesift`, with an explicit comment marking it
-as a transition measure so any deployment still pinned to the legacy
-image name keeps working; drop the legacy line once nothing depends on
-it — and **internal/runtime** in others:
+Erytheon was the project's name before the FireSift rename. Its GHCR
+image name (`ghcr.io/supremexxx/erytheon`) was dual-published alongside
+`ghcr.io/supremexxx/firesift` during the rename transition and has since
+been dropped — `.github/workflows/container.yml` now publishes only
+`ghcr.io/supremexxx/firesift`. Erytheon otherwise persists
+**internal/runtime**:
 
 - Environment variables actually read at runtime by
   `crates/engine/src/scheduler.rs` for deployment provenance:
