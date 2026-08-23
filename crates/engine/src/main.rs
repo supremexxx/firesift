@@ -996,12 +996,7 @@ async fn forecast(config: Config) -> anyhow::Result<()> {
             );
             Ok(())
         }
-        Err(error) => {
-            store
-                .record_source_error("weather_forecast", &error.to_string())
-                .await?;
-            Err(error)
-        }
+        Err(error) => Err(error),
     }
 }
 
