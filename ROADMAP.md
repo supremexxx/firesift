@@ -155,10 +155,20 @@ Périmètre minimal et état au 24 août 2026 :
   Performance, Terrain) et l'affiche désormais explicitement dans les
   quatre.
 - Performance des endpoints (`/api/blue/*`, `/api/watch/*`,
-  `/api/client/*`) — **pas encore fait**.
+  `/api/client/*`) — **fait pour BLUE et Watch** : mesuré en production,
+  toutes les routes répondent en moins de ~55 ms (P50 entre 1 et 25 ms
+  selon la taille de la réponse, y compris `/api/blue/alerts` à 388 Ko et
+  `/api/blue/ground-truth` à 106 Ko) ; **différé pour Client** comme la
+  cohérence SQL/API/UI, tant qu'il n'est pas activé en production.
 - Fraîcheur des données affichées (`computed_at` vs `valid_at`) — **fait
-  pour Watch** (correctif déjà appliqué) ; **pas encore vérifié pour
-  Client et BLUE**.
+  pour Watch** (correctif déjà appliqué) et **fait pour BLUE** :
+  `forecast_batch_computed_at` et `issued_at` sont identiques sur tous
+  les bulletins récents vérifiés (aucune donnée périmée republiée sous
+  une date fraîche), et l'UI distingue déjà correctement `issued_at`
+  (« émis », date de calcul) de `alert_24h_valid_at`/`alert_48h_valid_at`
+  (échéance de la prévision par commune) — pas de confusion des deux
+  contrairement au bug initial de Watch ; **pas encore vérifié pour
+  Client**, différé pour la même raison.
 - Protection par reverse proxy documentée pour chaque surface activée
   publiquement — **fait** : `/science` et `/blue` sont bien derrière
   Basic Auth dans `deploy/oracle/Caddyfile` ; Client et Watch restent
@@ -167,10 +177,11 @@ Périmètre minimal et état au 24 août 2026 :
   (correctif de la ligne de statut `weather_forecast` orpheline en
   production, qui faussait le résumé de santé du dashboard opérationnel).
 
-Reste à faire avant de déclarer cette étape close : cohérence SQL/API/UI
-pour Client (dès son activation en production), performance des
-endpoints des trois surfaces, et vérification de fraîcheur pour Client
-et BLUE.
+Reste à faire avant de déclarer cette étape close : uniquement les
+vérifications concernant Client (cohérence SQL/API/UI, performance,
+fraîcheur), bloquées tant que `CLIENT_CONSOLE_ENABLED` n'est pas activé
+en production — tout le reste du périmètre minimal est désormais
+couvert pour BLUE et Watch.
 
 Hors périmètre : nouveau modèle, modification du scoring v1, activation
 du candidat, shadow scoring, extension fonctionnelle majeure de BLUE ou
