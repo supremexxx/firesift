@@ -138,8 +138,13 @@ Périmètre minimal et état au 24 août 2026 :
   d'overflow mobile sur BLUE déjà détecté et corrigé indépendamment.
 - Cohérence des contrats SQL/API/UI (même méthode que l'audit 4A.3) —
   **fait pour BLUE** (bulletins et confirmations ground-truth
-  vérifiés en production, correspondance exacte SQL/API) ; **pas encore
-  fait pour Client et Watch**.
+  vérifiés en production, correspondance exacte SQL/API) ; **fait pour
+  Watch** (recherche de communes et bbox vérifiées en production contre
+  `reference.commune_boundaries`, correspondance exacte y compris les cas
+  d'erreur `404`/`400`) ; **volontairement différé pour Client** —
+  `CLIENT_CONSOLE_ENABLED=false` en production, rien n'y est exposé
+  actuellement ; à faire quand cette console sera activée en production,
+  plutôt qu'en environnement local isolé.
 - États vides et erreurs API correctement gérés et documentés — **fait**
   (état vide BLUE sans bulletin, disclaimer Client manquant, erreurs
   Watch documentées dans `docs/api.md`).
@@ -163,8 +168,9 @@ Périmètre minimal et état au 24 août 2026 :
   production, qui faussait le résumé de santé du dashboard opérationnel).
 
 Reste à faire avant de déclarer cette étape close : cohérence SQL/API/UI
-pour Client et Watch, performance des endpoints des trois surfaces, et
-vérification de fraîcheur pour Client et BLUE.
+pour Client (dès son activation en production), performance des
+endpoints des trois surfaces, et vérification de fraîcheur pour Client
+et BLUE.
 
 Hors périmètre : nouveau modèle, modification du scoring v1, activation
 du candidat, shadow scoring, extension fonctionnelle majeure de BLUE ou
