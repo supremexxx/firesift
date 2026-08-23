@@ -123,32 +123,48 @@ s'étend pas rétroactivement à la console territoriale/Client, à BLUE ou
 à Watch — ces trois surfaces sont apparues après cet audit et doivent
 être stabilisées séparément (voir l'étape suivante).
 
-## Stabilisation transverse des surfaces récentes (nouvelle étape, non commencée)
+## Stabilisation transverse des surfaces récentes (en cours)
 
-**Statut : non commencé.** À ouvrir avant tout élargissement important de
-Watch, avant la Phase 4B, avant P3, et avant toute présentation de BLUE
-comme un système complet de validation prospective. Couvre les trois
-surfaces apparues après l'audit 4A.3 : la console territoriale/Client,
-BLUE, et Watch.
+**Statut : partiellement complété.** Couvre les trois surfaces apparues
+après l'audit 4A.3 : la console territoriale/Client, BLUE, et Watch. À
+finir avant tout élargissement important de Watch, avant la Phase 4B,
+avant P3, et avant toute présentation de BLUE comme un système complet
+de validation prospective.
 
-Périmètre minimal :
+Périmètre minimal et état au 24 août 2026 :
 
-- Client, BLUE et Watch utilisés sur desktop et mobile ;
-- cohérence des contrats SQL/API/UI pour ces trois surfaces (même
-  méthode que l'audit 4A.3 : comparer les chiffres affichés aux valeurs
-  SQL sous-jacentes) ;
-- états vides et erreurs API correctement gérés et documentés ;
-- visibilité effective des limites scientifiques dans chaque surface
-  (le critère non vérifié par l'audit 4A.3, à couvrir ici explicitement
-  pour ces trois surfaces au minimum) ;
-- performance des endpoints (`/api/blue/*`, `/api/watch/*`,
-  `/api/client/*`) ;
-- fraîcheur des données affichées (`computed_at` vs `valid_at`, cohérent
-  avec le correctif déjà appliqué à Watch) ;
-- protection par reverse proxy documentée pour chaque surface activée
-  publiquement (rappel : le flag d'activation n'est pas une
-  authentification) ;
-- observabilité minimale (logs, erreurs de scheduler pour BLUE).
+- Client, BLUE et Watch utilisés sur desktop et mobile — **en cours** ;
+  vérification visuelle assurée directement par le mainteneur, un défaut
+  d'overflow mobile sur BLUE déjà détecté et corrigé indépendamment.
+- Cohérence des contrats SQL/API/UI (même méthode que l'audit 4A.3) —
+  **fait pour BLUE** (bulletins et confirmations ground-truth
+  vérifiés en production, correspondance exacte SQL/API) ; **pas encore
+  fait pour Client et Watch**.
+- États vides et erreurs API correctement gérés et documentés — **fait**
+  (état vide BLUE sans bulletin, disclaimer Client manquant, erreurs
+  Watch documentées dans `docs/api.md`).
+- Visibilité effective des limites scientifiques dans chaque surface —
+  **fait** : Client et Watch portaient déjà la mention standard
+  « projet de recherche expérimental, pas une alerte officielle » ; BLUE
+  ne l'affichait dans aucune de ses quatre vues (Analyse, Tableau,
+  Performance, Terrain) et l'affiche désormais explicitement dans les
+  quatre.
+- Performance des endpoints (`/api/blue/*`, `/api/watch/*`,
+  `/api/client/*`) — **pas encore fait**.
+- Fraîcheur des données affichées (`computed_at` vs `valid_at`) — **fait
+  pour Watch** (correctif déjà appliqué) ; **pas encore vérifié pour
+  Client et BLUE**.
+- Protection par reverse proxy documentée pour chaque surface activée
+  publiquement — **fait** : `/science` et `/blue` sont bien derrière
+  Basic Auth dans `deploy/oracle/Caddyfile` ; Client et Watch restent
+  sans protection dédiée par choix documenté (données publiques).
+- Observabilité minimale (logs, erreurs de scheduler pour BLUE) — **fait**
+  (correctif de la ligne de statut `weather_forecast` orpheline en
+  production, qui faussait le résumé de santé du dashboard opérationnel).
+
+Reste à faire avant de déclarer cette étape close : cohérence SQL/API/UI
+pour Client et Watch, performance des endpoints des trois surfaces, et
+vérification de fraîcheur pour Client et BLUE.
 
 Hors périmètre : nouveau modèle, modification du scoring v1, activation
 du candidat, shadow scoring, extension fonctionnelle majeure de BLUE ou
