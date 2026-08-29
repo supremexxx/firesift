@@ -63,6 +63,26 @@ All notable changes to FireSift are documented in this file.
 
 ### Fixed
 
+- BLUE no longer crashes when no bulletin has been published yet
+  (`crates/api/static/blue/blue.js`); it now shows a friendly empty
+  state instead of a raw `Cannot read properties of null` error.
+- The Client console now shows the scientific-limitations disclaimer
+  mirroring Watch's — it was the only console still missing one.
+- BLUE's "not an official alert" disclaimer is now explicit in all four
+  of its views (Analyse, Tableau, Performance, Terrain); previously each
+  view only had domain-specific score/evidence caveats, none of them
+  stating this directly.
+- BLUE no longer overflows horizontally on mobile viewports.
+- `deploy/oracle/deploy-code.sh` now preserves runtime file permissions
+  during deployment instead of resetting them.
+- The CLI `engine forecast` command no longer writes an orphaned
+  `weather_forecast` source-status row on failure — nothing else in the
+  codebase ever clears it, so a single failed manual run left the
+  operational dashboard permanently reporting a false `ERREUR` for that
+  source. The command already surfaces the failure via its own exit
+  code, so the write was redundant. (A pre-existing stuck row from
+  before this fix was cleared directly in production; the fix here
+  prevents it from happening again.)
 - GitHub license detection, by renaming `LICENSE` to `COPYRIGHT` (GitHub
   was misidentifying the project's dual-license setup from the old
   filename).
