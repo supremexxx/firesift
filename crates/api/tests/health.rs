@@ -1,7 +1,7 @@
 use api::AppState;
 use axum::{
     body::{Body, to_bytes},
-    http::{Request, StatusCode, header},
+    http::{Request, StatusCode},
 };
 use serde_json::json;
 use store::Store;
@@ -9,7 +9,7 @@ use tokio::sync::broadcast;
 use tower::ServiceExt;
 
 #[tokio::test]
-async fn dashboard_and_health_are_served() {
+async fn root_is_not_found_and_health_is_served() {
     dotenvy::dotenv().ok();
     let Ok(database_url) = std::env::var("DATABASE_URL") else {
         eprintln!("skipping database integration test: DATABASE_URL is not configured");
@@ -25,7 +25,9 @@ async fn dashboard_and_health_are_served() {
     let app = api::router(
         AppState::new(store, grid, updates).with_operational_area(aoi, "France métropolitaine"),
     );
-    let dashboard = app
+    // All bundled web interfaces were removed on 2026-08-30 -- this is now
+    // a bare read-only data API with no HTML shell at "/".
+    let root = app
         .clone()
         .oneshot(
             Request::builder()
@@ -34,18 +36,8 @@ async fn dashboard_and_health_are_served() {
                 .expect("request should be valid"),
         )
         .await
-        .expect("dashboard request should complete");
-    assert_eq!(dashboard.status(), StatusCode::OK);
-    assert_eq!(
-        dashboard.headers().get(header::CONTENT_TYPE),
-        Some(&"text/html; charset=utf-8".parse().expect("valid header"))
-    );
-    let dashboard_body = to_bytes(dashboard.into_body(), 256_000)
-        .await
-        .expect("dashboard body should be readable");
-    assert!(
-        String::from_utf8_lossy(&dashboard_body).contains("FireSift — Prévision des incendies")
-    );
+        .expect("root request should complete");
+    assert_eq!(root.status(), StatusCode::NOT_FOUND);
 
     let config_response = app
         .clone()

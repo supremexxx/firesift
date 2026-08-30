@@ -8,8 +8,8 @@ use axum::{
         Path, Query, State, WebSocketUpgrade,
         ws::{Message, WebSocket},
     },
-    http::{StatusCode, header},
-    response::{Html, IntoResponse, Response},
+    http::StatusCode,
+    response::{IntoResponse, Response},
     routing::get,
 };
 use chrono::{DateTime, Utc};
@@ -22,13 +22,6 @@ use store::{FwiSnapshot, SourceStatusRow, Store, StoredRiskScore};
 use tokio::sync::broadcast;
 use tower_http::trace::TraceLayer;
 
-mod blue;
-mod science;
-mod watch;
-
-const DASHBOARD_HTML: &str = include_str!("../static/index.html");
-const DASHBOARD_CSS: &str = include_str!("../static/dashboard.css");
-const DASHBOARD_JS: &str = include_str!("../static/dashboard.js");
 const MAX_RISK_FEATURES: u32 = 10_000;
 const MAX_ALERTS: u32 = 500;
 
@@ -42,9 +35,6 @@ pub struct AppState {
     aoi: BoundingBox,
     territory_label: String,
     operational_cells: Option<Arc<Vec<CellIndex>>>,
-    science_console_enabled: bool,
-    blue_center_enabled: bool,
-    watch_console_enabled: bool,
 }
 
 impl AppState {
@@ -63,9 +53,6 @@ impl AppState {
             },
             territory_label: "Aude · Occitanie".to_owned(),
             operational_cells: None,
-            science_console_enabled: false,
-            blue_center_enabled: false,
-            watch_console_enabled: false,
         }
     }
 
@@ -80,36 +67,6 @@ impl AppState {
     pub fn with_operational_cells(mut self, cells: Vec<CellIndex>) -> Self {
         self.operational_cells = Some(Arc::new(cells));
         self
-    }
-
-    /// Phase 4A: enables mounting the read-only `/science` and
-    /// `/api/science/*` routes. Defaults to `false` -- no
-    /// authentication exists anywhere in this API yet, so this is a
-    /// deployment gate, not real access control.
-    #[must_use]
-    pub const fn with_science_console_enabled(mut self, enabled: bool) -> Self {
-        self.science_console_enabled = enabled;
-        self
-    }
-
-    #[must_use]
-    pub const fn with_blue_center_enabled(mut self, enabled: bool) -> Self {
-        self.blue_center_enabled = enabled;
-        self
-    }
-
-    /// Enables mounting the read-only `/watch` and `/api/watch/*`
-    /// routes -- the public wildfire-risk map. Defaults to `false` for
-    /// the same reason as `with_science_console_enabled`: a deployment
-    /// gate, not real access control.
-    #[must_use]
-    pub const fn with_watch_console_enabled(mut self, enabled: bool) -> Self {
-        self.watch_console_enabled = enabled;
-        self
-    }
-
-    pub(crate) fn store(&self) -> &Store {
-        &self.store
     }
 }
 
@@ -182,135 +139,26 @@ struct RiskUpdateCell {
 }
 
 /// Builds the complete application router.
+///
+/// This is the bare read-only operational API -- `/health`, `/config`,
+/// `/risk`, `/risk/cell/{h3}`, `/alerts`, `/sources`, `/stream`. Every
+/// bundled web interface (the dashboard, the scientific console, BLUE,
+/// Watch) was removed on 2026-08-30 to be rebuilt from scratch; this API
+/// is the stable foundation any future interface will consume. See
+/// `ROADMAP.md` for the removal record.
 pub fn router(state: AppState) -> Router {
-    let mut router = Router::new()
-        .route("/", get(dashboard))
-        .route("/dashboard.css", get(dashboard_css))
-        .route("/dashboard.js", get(dashboard_js))
+    Router::new()
         .route("/health", get(health))
         .route("/config", get(api_config))
         .route("/risk", get(risk_geojson))
         .route("/risk/cell/{h3}", get(risk_cell))
         .route("/alerts", get(alerts))
         .route("/sources", get(sources))
-        .route("/stream", get(stream));
-
-    // Phase 4A: the read-only scientific console is only mounted when
-    // explicitly enabled. No authentication exists anywhere in this
-    // API, so this flag is a deployment gate, not real access control
-    // -- see SCIENTIFIC_CONSOLE_ARCHITECTURE.md.
-    if state.science_console_enabled {
-        router = router
-            .route("/science", get(science_shell))
-            .route("/science/{*path}", get(science_shell))
-            .route("/science.css", get(science_css))
-            .route("/science.js", get(science_js))
-            .nest("/api/science", science::router());
-    }
-
-    if state.blue_center_enabled {
-        router = router
-            .route("/blue", get(blue_shell))
-            .route("/blue/{*path}", get(blue_shell))
-            .route("/blue.css", get(blue_css))
-            .route("/blue.js", get(blue_js))
-            .nest("/api/blue", blue::router());
-    }
-
-    // Public wildfire-risk map: same deployment-gate rationale as the
-    // consoles above. Read-only, consumes the existing operational
-    // /risk, /risk/cell/{h3}, /sources and /config routes directly.
-    if state.watch_console_enabled {
-        router = router
-            .route("/watch", get(watch_shell))
-            .route("/watch/{*path}", get(watch_shell))
-            .route("/watch.css", get(watch_css))
-            .route("/watch.js", get(watch_js))
-            .nest("/api/watch", watch::router());
-    }
-
-    router
+        .route("/stream", get(stream))
         .fallback(not_found)
         .method_not_allowed_fallback(method_not_allowed)
         .with_state(state)
         .layer(TraceLayer::new_for_http())
-}
-
-const SCIENCE_HTML: &str = include_str!("../static/science/index.html");
-const SCIENCE_CSS: &str = include_str!("../static/science/science.css");
-const SCIENCE_JS: &str = include_str!("../static/science/science.js");
-const BLUE_HTML: &str = include_str!("../static/blue/index.html");
-const BLUE_CSS: &str = include_str!("../static/blue/blue.css");
-const BLUE_JS: &str = include_str!("../static/blue/blue.js");
-
-async fn blue_shell() -> Html<&'static str> {
-    Html(BLUE_HTML)
-}
-
-async fn blue_css() -> impl IntoResponse {
-    (
-        [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
-        BLUE_CSS,
-    )
-}
-
-async fn blue_js() -> impl IntoResponse {
-    (
-        [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-        BLUE_JS,
-    )
-}
-
-async fn science_shell() -> Html<&'static str> {
-    Html(SCIENCE_HTML)
-}
-
-async fn science_css() -> impl IntoResponse {
-    (
-        [
-            (header::CONTENT_TYPE, "text/css; charset=utf-8"),
-            (header::CACHE_CONTROL, "public, max-age=300"),
-        ],
-        SCIENCE_CSS,
-    )
-}
-
-async fn science_js() -> impl IntoResponse {
-    (
-        [
-            (header::CONTENT_TYPE, "text/javascript; charset=utf-8"),
-            (header::CACHE_CONTROL, "public, max-age=300"),
-        ],
-        SCIENCE_JS,
-    )
-}
-
-const WATCH_HTML: &str = include_str!("../static/watch/index.html");
-const WATCH_CSS: &str = include_str!("../static/watch/watch.css");
-const WATCH_JS: &str = include_str!("../static/watch/watch.js");
-
-async fn watch_shell() -> Html<&'static str> {
-    Html(WATCH_HTML)
-}
-
-async fn watch_css() -> impl IntoResponse {
-    (
-        [
-            (header::CONTENT_TYPE, "text/css; charset=utf-8"),
-            (header::CACHE_CONTROL, "public, max-age=300"),
-        ],
-        WATCH_CSS,
-    )
-}
-
-async fn watch_js() -> impl IntoResponse {
-    (
-        [
-            (header::CONTENT_TYPE, "text/javascript; charset=utf-8"),
-            (header::CACHE_CONTROL, "public, max-age=300"),
-        ],
-        WATCH_JS,
-    )
 }
 
 async fn api_config(State(state): State<AppState>) -> Json<ApiConfigResponse> {
@@ -324,30 +172,6 @@ async fn api_config(State(state): State<AppState>) -> Json<ApiConfigResponse> {
         ],
         h3_resolution: u8::from(state.grid.resolution()),
     })
-}
-
-async fn dashboard() -> Html<&'static str> {
-    Html(DASHBOARD_HTML)
-}
-
-async fn dashboard_css() -> impl IntoResponse {
-    (
-        [
-            (header::CONTENT_TYPE, "text/css; charset=utf-8"),
-            (header::CACHE_CONTROL, "public, max-age=300"),
-        ],
-        DASHBOARD_CSS,
-    )
-}
-
-async fn dashboard_js() -> impl IntoResponse {
-    (
-        [
-            (header::CONTENT_TYPE, "text/javascript; charset=utf-8"),
-            (header::CACHE_CONTROL, "public, max-age=300"),
-        ],
-        DASHBOARD_JS,
-    )
 }
 
 async fn not_found() -> ApiError {
@@ -689,45 +513,6 @@ fn database_error(error: store::StoreError) -> ApiError {
     tracing::error!(%error, "API database operation failed");
     drop(error);
     ApiError::service_unavailable("database_unavailable", "database operation failed")
-}
-
-pub(crate) fn validate_insee_code(raw: &str) -> Result<String, ApiError> {
-    let code = raw.to_uppercase();
-    let valid = code.len() == 5
-        && if let Some(rest) = code.strip_prefix("2A").or_else(|| code.strip_prefix("2B")) {
-            rest.bytes().all(|byte| byte.is_ascii_digit())
-        } else {
-            code.bytes().all(|byte| byte.is_ascii_digit())
-        };
-    if !valid {
-        return Err(ApiError::bad_request(
-            "invalid_insee_code",
-            "insee_code must be five digits, or 2A/2B followed by three digits",
-        ));
-    }
-    Ok(code)
-}
-
-#[cfg(test)]
-mod insee_code_tests {
-    use super::validate_insee_code;
-
-    #[test]
-    fn accepts_a_plain_five_digit_code() {
-        assert_eq!(validate_insee_code("31490").unwrap(), "31490");
-    }
-
-    #[test]
-    fn accepts_and_normalizes_corsica_prefixes() {
-        assert_eq!(validate_insee_code("2a004").unwrap(), "2A004");
-    }
-
-    #[test]
-    fn rejects_malformed_codes() {
-        assert!(validate_insee_code("3144").is_err());
-        assert!(validate_insee_code("abcde").is_err());
-        assert!(validate_insee_code("314906").is_err());
-    }
 }
 
 fn error_payload(code: &str, message: &str) -> String {

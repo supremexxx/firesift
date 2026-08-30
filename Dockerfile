@@ -28,13 +28,11 @@ ARG OCI_REVISION=unknown
 ARG OCI_CREATED=unknown
 ARG OCI_TITLE=firesift
 ARG FIRESIFT_PHASE=unknown
-ARG FIRESIFT_SCIENCE_CONSOLE=false
 
 LABEL org.opencontainers.image.revision="${OCI_REVISION}" \
       org.opencontainers.image.created="${OCI_CREATED}" \
       org.opencontainers.image.title="${OCI_TITLE}" \
-      firesift.phase="${FIRESIFT_PHASE}" \
-      firesift.science_console="${FIRESIFT_SCIENCE_CONSOLE}"
+      firesift.phase="${FIRESIFT_PHASE}"
 
 RUN apt-get update && \
     apt-get install --yes --no-install-recommends ca-certificates curl gdal-bin libeccodes-tools && \
