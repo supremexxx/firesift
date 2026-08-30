@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM rust:1.94-bookworm AS builder
+FROM rust:1.98-bookworm AS builder
 
 # Per-architecture cache scope: without it, concurrent `docker buildx build
 # --platform linux/amd64,linux/arm64` runs share one cache mount and race
