@@ -1,21 +1,21 @@
 # Architecture
 
 FireSift is a single Rust Cargo workspace of nine crates, one PostgreSQL/
-PostGIS database, and one HTTP API with **five** surfaces: an always-on
-operational core, and four optional consoles mounted only when their
-deployment flag is enabled — a read-only scientific console, a read-only
-territorial (municipality-scoped) view, the BLUE forecast-evidence center,
-and the Watch public map. All five are served by the same `api` crate and
-the same `engine` binary; there is no separate write-capable admin
-surface, and **none of the four optional consoles carries its own
-authentication** — see [API surfaces](#api-surfaces) below.
+PostGIS database, and one HTTP API with **four** surfaces: an always-on
+operational core, and three optional consoles mounted only when their
+deployment flag is enabled — a read-only scientific console, the BLUE
+forecast-evidence center, and the Watch public map. All four are served
+by the same `api` crate and the same `engine` binary; there is no
+separate write-capable admin surface, and **none of the three optional
+consoles carries its own authentication** — see [API surfaces](#api-surfaces)
+below.
 
 ## Crates
 
 | Crate | Responsibility |
 |---|---|
 | `engine` | Configuration, CLI commands, scheduler (FIRMS/forecast polling, BLUE evidence and ground-truth refresh, operational snapshots), orchestration, binary entry point (`pyrorisk`). The only crate that writes on a recurring schedule. |
-| `api` | Axum HTTP/WebSocket API, entirely read-only. Mounts the operational core plus four independently flagged consoles: scientific, territorial/client, BLUE, Watch. |
+| `api` | Axum HTTP/WebSocket API, entirely read-only. Mounts the operational core plus three independently flagged consoles: scientific, BLUE, Watch. |
 | `store` | PostgreSQL/PostGIS access, migrations, repositories — the only crate that talks to the database directly, for every surface above. |
 | `ingest` | Source connectors and normalization (FIRMS, Météo-France, ECMWF, Open-Meteo, BDIFF, Prométhée, OSM, CORINE, INSEE, calendars) |
 | `dataset` | Scientific dataset construction and versioning |
@@ -48,10 +48,9 @@ flowchart LR
         STORE[(raw / staging / fire / ml / ops schemas)]
     end
 
-    subgraph api_layer["api (Axum) -- 5 surfaces, 4 gated by flag"]
+    subgraph api_layer["api (Axum) -- 4 surfaces, 3 gated by flag"]
         OPS[Operational core: / /risk /alerts /sources /stream]
         SCI["Scientific console (SCIENCE_CONSOLE_ENABLED)<br/>/api/science/*"]
-        TERRVIEW["Territorial console (CLIENT_CONSOLE_ENABLED)<br/>/api/client/*"]
         BLUEC["BLUE center (BLUE_CENTER_ENABLED)<br/>/api/blue/*"]
         WATCHC["Watch public map (WATCH_CONSOLE_ENABLED)<br/>/api/watch/*"]
     end
@@ -65,7 +64,6 @@ flowchart LR
     RISK --> STORE
     STORE --> OPS
     STORE --> SCI
-    STORE --> TERRVIEW
     STORE --> BLUEC
     OPS -.reuses /risk, /sources.-> WATCHC
     ENGINE --> ING
@@ -91,7 +89,7 @@ it, what protects it, and what it reads.
 
 **A deployment flag is not authentication.** Every route below is
 implemented with no login, session, token or API key of any kind — the
-four `*_ENABLED` flags only decide whether Axum mounts the routes at all.
+three `*_ENABLED` flags only decide whether Axum mounts the routes at all.
 A public deployment that enables any of them without putting its own
 access control in front (a reverse-proxy Basic Auth layer, an IP
 allowlist, etc.) is exposing that surface to the internet unauthenticated.
@@ -100,7 +98,6 @@ allowlist, etc.) is exposing that surface to the internet unauthenticated.
 |---|---|---|---|---|---|
 | Operational core | always mounted | n/a | Yes (all `GET`/`WS`) | None needed — designed to be public | Covered across `crates/api` and `crates/engine` integration tests |
 | Scientific console | `SCIENCE_CONSOLE_ENABLED` | `false` | Yes | Reverse-proxy Basic Auth (Caddy) if enabled publicly | `crates/api/tests/science.rs`, 10+ integration tests |
-| Territorial console | `CLIENT_CONSOLE_ENABLED` | `false` | Yes | None strictly required (public geographic data), but still unauthenticated by design | `crates/api/tests/client.rs` |
 | BLUE forecast-evidence center | `BLUE_CENTER_ENABLED` | `false` | Yes (HTTP API); ingests via scheduler, not via HTTP | Reverse-proxy protection recommended until BLUE's own maturity is reassessed | `crates/api/tests/blue.rs`, `crates/store/tests/blue_forecast.rs` — comparatively light relative to `store/src/blue.rs`'s size |
 | Watch public map | `WATCH_CONSOLE_ENABLED` | `false` | Yes | None needed if published — it deliberately exposes nothing beyond what `/risk` and `/sources` already expose | `crates/api/tests/watch.rs`, 6 tests |
 
@@ -110,14 +107,6 @@ allowlist, etc.) is exposing that surface to the internet unauthenticated.
 - **Scientific console** (`/science`, `/api/science/*`) — read-only,
   gated behind `SCIENCE_CONSOLE_ENABLED`; every route is `GET`. See
   [`docs/research/reports/SCIENTIFIC_CONSOLE_ARCHITECTURE.md`](research/reports/SCIENTIFIC_CONSOLE_ARCHITECTURE.md).
-- **Territorial console** (`/client`, `/api/client/*`) — a read-only,
-  single-commune-scoped view resolved generically by INSEE code (no
-  commune hard-coded). Internally this began as a "client console"
-  concept for municipal stakeholders; it is a technically useful
-  read-only geographic view and is kept, but should be described publicly
-  as a **scoped territorial dashboard**, not a commercial client portal —
-  the project no longer positions FireSift as a paid product (see the root
-  [`README.md`](../README.md) for the current positioning).
 - **BLUE forecast-evidence center** — see [BLUE](#blue-forecast-evidence-center) below.
 - **Watch public map** — see [Watch](#watch-public-map) below.
 

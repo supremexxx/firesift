@@ -69,7 +69,6 @@ for the full picture, including expected reverse-proxy protection:
 |---|---|---|
 | Operational dashboard | always on | Public |
 | Scientific console (`/science`) | `SCIENCE_CONSOLE_ENABLED` | Experimental, disabled by default |
-| Territorial/client console (`/client`) | `CLIENT_CONSOLE_ENABLED` | Experimental, disabled by default |
 | BLUE forecast-evidence center (`/blue`) | `BLUE_CENTER_ENABLED` | Experimental, partial foundation — see [Scientific status](#scientific-status) |
 | Watch public map (`/watch`) | `WATCH_CONSOLE_ENABLED` | Experimental, present in `Unreleased`, disabled by default |
 

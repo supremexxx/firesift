@@ -33,14 +33,9 @@ const DEFAULT_API_BIND: &str = "0.0.0.0:8080";
 /// `SCIENTIFIC_CONSOLE_ARCHITECTURE.md` for the honest limitation and
 /// the Phase 4B follow-up).
 const DEFAULT_SCIENCE_CONSOLE_ENABLED: &str = "false";
-/// The client-facing commune console's routes (`/client`,
-/// `/api/client/*`) are only mounted when this is `true`. Defaults to
-/// `false` for the same reason as `SCIENCE_CONSOLE_ENABLED`: this is a
-/// deployment gate for an early prototype, not access control.
-const DEFAULT_CLIENT_CONSOLE_ENABLED: &str = "false";
 /// The public wildfire-risk map's routes (`/watch`, `/api/watch/*`) are
 /// only mounted when this is `true`. Defaults to `false` for the same
-/// reason as `CLIENT_CONSOLE_ENABLED`: a deployment gate, not access
+/// reason as `SCIENCE_CONSOLE_ENABLED`: a deployment gate, not access
 /// control.
 const DEFAULT_WATCH_CONSOLE_ENABLED: &str = "false";
 const DEFAULT_BLUE_CENTER_ENABLED: &str = "false";
@@ -75,7 +70,6 @@ pub struct Config {
     pub risk: RiskConfig,
     pub api_bind: SocketAddr,
     pub science_console_enabled: bool,
-    pub client_console_enabled: bool,
     pub watch_console_enabled: bool,
     pub blue_center_enabled: bool,
     pub blue_ai_evidence_enabled: bool,
@@ -145,10 +139,6 @@ impl Config {
             science_console_enabled: parse_env(
                 "SCIENCE_CONSOLE_ENABLED",
                 DEFAULT_SCIENCE_CONSOLE_ENABLED,
-            )?,
-            client_console_enabled: parse_env(
-                "CLIENT_CONSOLE_ENABLED",
-                DEFAULT_CLIENT_CONSOLE_ENABLED,
             )?,
             watch_console_enabled: parse_env(
                 "WATCH_CONSOLE_ENABLED",

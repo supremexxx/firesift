@@ -1,8 +1,8 @@
 //! Commune (municipality) boundary reference data.
 //!
-//! Boundaries are read-only reference data used to clip risk cells for the
-//! client-facing commune view; nothing in the scoring or scheduler paths
-//! writes to this table.
+//! Boundaries are read-only reference data used to clip risk cells and to
+//! back commune search/lookup for the Watch public map; nothing in the
+//! scoring or scheduler paths writes to this table.
 
 use geo::{BoundingRect as _, Geometry};
 use grid::BoundingBox;
