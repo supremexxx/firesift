@@ -258,8 +258,9 @@ enum Command {
     /// Plans H3 work partitions from French department boundaries.
     TerritoryPlan,
     /// Loads or replaces one commune boundary `GeoJSON` fixture, keyed by
-    /// INSEE code, for the client-facing commune view. Generic: reusable
-    /// for any commune, not specific to a single one.
+    /// INSEE code, backing commune search/lookup (used by the Watch
+    /// public map). Generic: reusable for any commune, not specific to
+    /// a single one.
     LoadCommuneBoundary {
         /// Five-character INSEE municipality code, e.g. 31490.
         #[arg(long)]
@@ -1401,7 +1402,6 @@ async fn run(config: Config) -> anyhow::Result<()> {
     let mut app_state = AppState::new(store, grid, updates)
         .with_operational_area(config.aoi_bbox, territory_label)
         .with_science_console_enabled(config.science_console_enabled)
-        .with_client_console_enabled(config.client_console_enabled)
         .with_watch_console_enabled(config.watch_console_enabled)
         .with_blue_center_enabled(config.blue_center_enabled);
     if let Some(territory) = &territory {

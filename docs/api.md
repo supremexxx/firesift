@@ -53,24 +53,6 @@ is enabled and not meant to be fully public.
   `/api/science/*` route return `404`.
 - Read-only: yes, every route is `GET`.
 
-## Territorial console — `experimental`, disabled by default
-
-`/client`, `/client/{*path}`, and `/api/client/*` (including
-`/api/client/communes/{insee_code}` and
-`/api/client/communes/{insee_code}/risk`) provide a read-only view scoped
-to a single commune, resolved generically by INSEE code. See
-[`docs/architecture.md`](architecture.md#api-surfaces) for framing notes.
-
-- Flag: `CLIENT_CONSOLE_ENABLED`, default `false`.
-- Stability: `experimental`.
-- Target audience: municipal/territorial stakeholders exploring one
-  commune's risk; not a general public surface.
-- Authentication: none. `CLIENT_CONSOLE_ENABLED` is a deployment gate,
-  not access control.
-- When the flag is off: `/client`, `/client/{*path}`, and every
-  `/api/client/*` route return `404`.
-- Read-only: yes, every route is `GET`.
-
 ## BLUE forecast-evidence center — `experimental`, disabled by default
 
 Mounted only when `BLUE_CENTER_ENABLED=true`; every route under
@@ -137,9 +119,9 @@ commune search needed for "type a commune name, pan the map."
 
 ## Internal / not part of the public contract
 
-Anything under `crates/api/static` (dashboard/science/client/blue/watch
-HTML, CSS, JS assets) is served as-is and is an implementation detail of
-the bundled UI, not a documented API.
+Anything under `crates/api/static` (dashboard/science/blue/watch HTML,
+CSS, JS assets) is served as-is and is an implementation detail of the
+bundled UI, not a documented API.
 
 ## Stability
 
@@ -147,7 +129,7 @@ This project is pre-1.0. The Cargo workspace version is still `0.1.0`;
 the most recent tagged repository release is `v0.5.0` — see
 [`docs/project-identity.md`](project-identity.md) for how those two
 numbers relate. No endpoint listed above is guaranteed stable across
-releases yet, and `experimental` routes (scientific console, territorial
-console, BLUE, Watch) should not be treated as stable contracts at all;
+releases yet, and `experimental` routes (scientific console, BLUE, Watch)
+should not be treated as stable contracts at all;
 breaking changes will be called out in [`CHANGELOG.md`](../CHANGELOG.md),
 not silently shipped.

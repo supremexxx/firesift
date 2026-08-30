@@ -23,7 +23,6 @@ use tokio::sync::broadcast;
 use tower_http::trace::TraceLayer;
 
 mod blue;
-mod client;
 mod science;
 mod watch;
 
@@ -44,7 +43,6 @@ pub struct AppState {
     territory_label: String,
     operational_cells: Option<Arc<Vec<CellIndex>>>,
     science_console_enabled: bool,
-    client_console_enabled: bool,
     blue_center_enabled: bool,
     watch_console_enabled: bool,
 }
@@ -66,7 +64,6 @@ impl AppState {
             territory_label: "Aude · Occitanie".to_owned(),
             operational_cells: None,
             science_console_enabled: false,
-            client_console_enabled: false,
             blue_center_enabled: false,
             watch_console_enabled: false,
         }
@@ -95,16 +92,6 @@ impl AppState {
         self
     }
 
-    /// Enables mounting the read-only `/client` and `/api/client/*`
-    /// routes. Defaults to `false` for the same reason as
-    /// `with_science_console_enabled` -- a deployment gate, not real
-    /// access control.
-    #[must_use]
-    pub const fn with_client_console_enabled(mut self, enabled: bool) -> Self {
-        self.client_console_enabled = enabled;
-        self
-    }
-
     #[must_use]
     pub const fn with_blue_center_enabled(mut self, enabled: bool) -> Self {
         self.blue_center_enabled = enabled;
@@ -123,10 +110,6 @@ impl AppState {
 
     pub(crate) fn store(&self) -> &Store {
         &self.store
-    }
-
-    pub(crate) fn grid(&self) -> H3Grid {
-        self.grid
     }
 }
 
@@ -225,18 +208,6 @@ pub fn router(state: AppState) -> Router {
             .nest("/api/science", science::router());
     }
 
-    // Client-facing commune console: same deployment-gate rationale as
-    // the scientific console above. Read-only, scoped to one commune's
-    // real boundary per request.
-    if state.client_console_enabled {
-        router = router
-            .route("/client", get(client_shell))
-            .route("/client/{*path}", get(client_shell))
-            .route("/client.css", get(client_css))
-            .route("/client.js", get(client_js))
-            .nest("/api/client", client::router());
-    }
-
     if state.blue_center_enabled {
         router = router
             .route("/blue", get(blue_shell))
@@ -311,34 +282,6 @@ async fn science_js() -> impl IntoResponse {
             (header::CACHE_CONTROL, "public, max-age=300"),
         ],
         SCIENCE_JS,
-    )
-}
-
-const CLIENT_HTML: &str = include_str!("../static/client/index.html");
-const CLIENT_CSS: &str = include_str!("../static/client/client.css");
-const CLIENT_JS: &str = include_str!("../static/client/client.js");
-
-async fn client_shell() -> Html<&'static str> {
-    Html(CLIENT_HTML)
-}
-
-async fn client_css() -> impl IntoResponse {
-    (
-        [
-            (header::CONTENT_TYPE, "text/css; charset=utf-8"),
-            (header::CACHE_CONTROL, "public, max-age=300"),
-        ],
-        CLIENT_CSS,
-    )
-}
-
-async fn client_js() -> impl IntoResponse {
-    (
-        [
-            (header::CONTENT_TYPE, "text/javascript; charset=utf-8"),
-            (header::CACHE_CONTROL, "public, max-age=300"),
-        ],
-        CLIENT_JS,
     )
 }
 
@@ -746,6 +689,45 @@ fn database_error(error: store::StoreError) -> ApiError {
     tracing::error!(%error, "API database operation failed");
     drop(error);
     ApiError::service_unavailable("database_unavailable", "database operation failed")
+}
+
+pub(crate) fn validate_insee_code(raw: &str) -> Result<String, ApiError> {
+    let code = raw.to_uppercase();
+    let valid = code.len() == 5
+        && if let Some(rest) = code.strip_prefix("2A").or_else(|| code.strip_prefix("2B")) {
+            rest.bytes().all(|byte| byte.is_ascii_digit())
+        } else {
+            code.bytes().all(|byte| byte.is_ascii_digit())
+        };
+    if !valid {
+        return Err(ApiError::bad_request(
+            "invalid_insee_code",
+            "insee_code must be five digits, or 2A/2B followed by three digits",
+        ));
+    }
+    Ok(code)
+}
+
+#[cfg(test)]
+mod insee_code_tests {
+    use super::validate_insee_code;
+
+    #[test]
+    fn accepts_a_plain_five_digit_code() {
+        assert_eq!(validate_insee_code("31490").unwrap(), "31490");
+    }
+
+    #[test]
+    fn accepts_and_normalizes_corsica_prefixes() {
+        assert_eq!(validate_insee_code("2a004").unwrap(), "2A004");
+    }
+
+    #[test]
+    fn rejects_malformed_codes() {
+        assert!(validate_insee_code("3144").is_err());
+        assert!(validate_insee_code("abcde").is_err());
+        assert!(validate_insee_code("314906").is_err());
+    }
 }
 
 fn error_payload(code: &str, message: &str) -> String {

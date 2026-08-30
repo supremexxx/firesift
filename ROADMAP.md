@@ -177,11 +177,17 @@ Périmètre minimal et état au 24 août 2026 :
   (correctif de la ligne de statut `weather_forecast` orpheline en
   production, qui faussait le résumé de santé du dashboard opérationnel).
 
-Reste à faire avant de déclarer cette étape close : uniquement les
-vérifications concernant Client (cohérence SQL/API/UI, performance,
-fraîcheur), bloquées tant que `CLIENT_CONSOLE_ENABLED` n'est pas activé
-en production — tout le reste du périmètre minimal est désormais
-couvert pour BLUE et Watch.
+**Mise à jour du 30 août 2026 : la console territoriale/Client a été
+supprimée entièrement** (code, routes, tests, flag `CLIENT_CONSOLE_ENABLED`,
+assets statiques) — décision du propriétaire du projet dans le cadre
+d'une refonte des interfaces web, la console étant désactivée en
+production, jamais utilisée, et sans dépendant externe confirmé. Les
+points de ce périmètre qui restaient différés pour Client (cohérence
+SQL/API/UI, performance, fraîcheur) sont donc **sans objet** plutôt que
+« en attente ».
+
+Cette étape est désormais close : tout le périmètre minimal est couvert
+pour BLUE et Watch, et Client n'existe plus.
 
 Hors périmètre : nouveau modèle, modification du scoring v1, activation
 du candidat, shadow scoring, extension fonctionnelle majeure de BLUE ou
@@ -248,7 +254,7 @@ La phase doit définir avant implémentation :
 | Surface | Statut | Flag, défaut | Notes |
 |---|---|---|---|
 | Console scientifique | Intégré et publié ; stabilisation 4A.3 close pour ce périmètre | `SCIENCE_CONSOLE_ENABLED`, `false` | Voir §4A.3 ci-dessus |
-| Console territoriale/Client | Expérimental, pas de stabilisation dédiée à ce jour | `CLIENT_CONSOLE_ENABLED`, `false` | Dans le périmètre de la stabilisation transverse ci-dessus |
+| Console territoriale/Client | **Supprimée** (30 août 2026) | — | Code, routes, tests et flag entièrement retirés ; voir le chantier de consolidation des interfaces web |
 | BLUE | Partiellement implémenté (fondation active, enrichie jusqu'à la migration `0032`) | `BLUE_CENTER_ENABLED`, `false` | Voir Phase D ci-dessous et [`docs/architecture.md#blue-forecast-evidence-center`](docs/architecture.md#blue-forecast-evidence-center) ; **insuffisant à lui seul pour déclarer une validation prospective complète** |
 | Watch | Présent dans `Unreleased`, expérimental | `WATCH_CONSOLE_ENABLED`, `false` | Implémenté (commit Watch + correctif de fraîcheur), non encore publié dans une release taguée, désactivé par défaut, nécessite la stabilisation transverse ci-dessus avant tout élargissement |
 

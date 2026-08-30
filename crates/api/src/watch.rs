@@ -12,7 +12,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{ApiError, AppState, client::validate_insee_code, database_error};
+use crate::{ApiError, AppState, database_error, validate_insee_code};
 
 /// Builds the `/api/watch/*` sub-router. The caller decides whether to
 /// nest this at all (only when `AppState::watch_console_enabled` is
