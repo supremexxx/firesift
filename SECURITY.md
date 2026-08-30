@@ -46,10 +46,13 @@ Out of scope / please don't:
 
 ## Sensitive areas
 
-- **The scientific console** (`/science`, `/api/science/*`) is intended to
-  be read-only. If you find a way to write, mutate state, trigger an
+- **The read-only operational API** (`/health`, `/config`, `/risk`,
+  `/risk/cell/{h3}`, `/alerts`, `/sources`, `/stream`) is intended to be
+  read-only. If you find a way to write, mutate state, trigger an
   import, retrain, or activate a model through it, that is a security bug
-  — report it privately.
+  — report it privately. No bundled web interface exists as of
+  2026-08-30 (see [`ROADMAP.md`](ROADMAP.md)); this applies to whatever
+  interface layer is rebuilt going forward too.
 - **`.env.example` and `.env.production.example`** must never contain real
   credentials. If you spot one that does, report it privately and do not
   quote the value in any public channel.

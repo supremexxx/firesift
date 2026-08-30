@@ -238,15 +238,6 @@ enum Command {
         #[arg(long)]
         expected_feature_list_checksum: String,
     },
-    /// Phase 4A: serves only the read-only scientific console (`/science`,
-    /// `/api/science/*`) for isolated validation. Deliberately does NOT
-    /// start the scheduler, does NOT fetch FIRMS/weather, and does NOT
-    /// load a risk model -- this is a read-only preview binary, not the
-    /// operational service.
-    PreviewScienceConsole {
-        #[arg(long, default_value = "0.0.0.0:8081")]
-        bind: std::net::SocketAddr,
-    },
     /// Pre-aggregates regional OSM PBF extracts into a reusable H3 cache.
     OsmAggregate {
         /// Destination newline-delimited JSON file.
@@ -562,7 +553,6 @@ async fn main() -> anyhow::Result<()> {
             )
             .await
         }
-        Command::PreviewScienceConsole { bind } => preview_science_console(config, bind).await,
         Command::OsmAggregate { output } => osm_aggregate(&config, &output).await,
         Command::DataStatus => data_status(config).await,
         Command::TerritoryPlan => territory_plan(&config),
@@ -1399,11 +1389,8 @@ async fn run(config: Config) -> anyhow::Result<()> {
             "Aude · Occitanie".to_owned()
         }
     });
-    let mut app_state = AppState::new(store, grid, updates)
-        .with_operational_area(config.aoi_bbox, territory_label)
-        .with_science_console_enabled(config.science_console_enabled)
-        .with_watch_console_enabled(config.watch_console_enabled)
-        .with_blue_center_enabled(config.blue_center_enabled);
+    let mut app_state =
+        AppState::new(store, grid, updates).with_operational_area(config.aoi_bbox, territory_label);
     if let Some(territory) = &territory {
         let cells = territory
             .partitions
@@ -1416,32 +1403,6 @@ async fn run(config: Config) -> anyhow::Result<()> {
         .with_graceful_shutdown(shutdown_signal())
         .await
         .context("API server failed")
-}
-
-/// Phase 4A: serves only the read-only scientific console, for
-/// isolated validation. Does not call `scheduler::spawn`, does not
-/// fetch FIRMS/weather, does not load a risk model, and does not
-/// serve `/risk`/`/alerts`/`/stream` with real data (those routes
-/// exist on the shared router but are never exercised here) -- purely
-/// a preview of `/science` and `/api/science/*` against real data.
-async fn preview_science_console(config: Config, bind: std::net::SocketAddr) -> anyhow::Result<()> {
-    let store = Store::connect(&config.database_url)
-        .await
-        .context("failed to initialize database")?;
-    let listener = TcpListener::bind(bind)
-        .await
-        .with_context(|| format!("failed to bind preview server to {bind}"))?;
-    tracing::info!(%bind, "scientific console preview listening (no scheduler, read-only)");
-    let grid = H3Grid::new(config.h3_resolution).context("failed to configure H3 grid")?;
-    let (updates, _) = broadcast::channel::<Arc<api::RiskUpdate>>(RISK_UPDATE_CHANNEL_CAPACITY);
-    let app_state = AppState::new(store, grid, updates)
-        .with_operational_area(config.aoi_bbox, "Aperçu console scientifique".to_owned())
-        .with_science_console_enabled(true)
-        .with_blue_center_enabled(config.blue_center_enabled);
-    axum::serve(listener, api::router(app_state))
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .context("scientific console preview server failed")
 }
 
 fn configured_territory(

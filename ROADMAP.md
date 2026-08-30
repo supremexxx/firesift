@@ -1,6 +1,23 @@
 # FireSift — Roadmap
 
-État au 20 août 2026.
+État au 20 août 2026, avec une mise à jour majeure le 30 août 2026 (voir
+ci-dessous).
+
+> **30 août 2026 — Suppression complète des interfaces web.** Le
+> propriétaire du projet a supprimé les quatre interfaces restantes
+> (dashboard opérationnel, console scientifique, BLUE, Watch) — code,
+> routes HTTP, assets statiques, tests — pour repartir de zéro sur une
+> nouvelle interface plus tard, plutôt que de continuer les corrections
+> incrémentales prévues par la "stabilisation transverse" ci-dessous.
+> **Rien n'a été touché côté scoring, modèles ou collecte de données** :
+> le socle API en lecture seule (`/health`, `/risk`, `/alerts`,
+> `/sources`, `/stream`, `/config`) tourne toujours, et la collecte de
+> preuves BLUE (`poll_blue_evidence`, capture du bulletin quotidien)
+> continue en arrière-plan malgré la suppression de son interface — voir
+> [`docs/architecture.md`](docs/architecture.md). Les sections
+> "Stabilisation transverse", "Phase 4B" et le tableau "État des
+> surfaces" ci-dessous décrivent une trajectoire **abandonnée** ; elles
+> sont conservées comme historique, pas comme plan actif.
 
 ## Principes de progression
 
@@ -123,9 +140,14 @@ s'étend pas rétroactivement à la console territoriale/Client, à BLUE ou
 à Watch — ces trois surfaces sont apparues après cet audit et doivent
 être stabilisées séparément (voir l'étape suivante).
 
-## Stabilisation transverse des surfaces récentes (en cours)
+## Stabilisation transverse des surfaces récentes (abandonnée — voir note du 30 août 2026 en tête de document)
 
-**Statut : partiellement complété.** Couvre les trois surfaces apparues
+**Statut : sans objet.** Les surfaces concernées (Client, BLUE, Watch)
+ont depuis toutes été supprimées ; cette section est conservée comme
+trace historique du travail déjà accompli avant la décision du 30 août,
+pas comme travail restant.
+
+**Statut historique (avant suppression) : partiellement complété.** Couvre les trois surfaces apparues
 après l'audit 4A.3 : la console territoriale/Client, BLUE, et Watch. À
 finir avant tout élargissement important de Watch, avant la Phase 4B,
 avant P3, et avant toute présentation de BLUE comme un système complet
@@ -193,11 +215,12 @@ Hors périmètre : nouveau modèle, modification du scoring v1, activation
 du candidat, shadow scoring, extension fonctionnelle majeure de BLUE ou
 Watch au-delà des corrections nécessaires à la stabilisation elle-même.
 
-## Phase 4B — visualisations scientifiques
+## Phase 4B — visualisations scientifiques (abandonnée — voir note du 30 août 2026 en tête de document)
 
-**Statut : non commencé.** À ouvrir après la stabilisation transverse
-ci-dessus (qui remplace et étend l'ancienne dépendance directe à 4A.3
-seule).
+**Statut : sans objet.** Cette phase prévoyait d'enrichir la console
+scientifique, qui n'existe plus. Conservée comme référence pour la
+future interface scientifique à reconstruire — le périmètre envisagé
+ci-dessous reste une base de réflexion valable, pas un plan actif.
 
 Périmètre envisagé :
 
@@ -213,8 +236,10 @@ Cette phase reste read-only et ne modifie aucun statut de modèle.
 
 ## P3 — shadow scoring limité
 
-**Statut : non commencé.** À ouvrir seulement après la stabilisation
-transverse ci-dessus et validation du protocole.
+**Statut : non commencé.** La dépendance à la "stabilisation transverse"
+ci-dessus n'a plus d'objet (interfaces supprimées) ; cette phase reste
+soumise à sa propre validation de protocole avant ouverture, comme
+toujours, mais n'est plus liée au sort d'une console qui n'existe plus.
 
 Principes :
 
@@ -251,12 +276,17 @@ La phase doit définir avant implémentation :
 
 ## État des surfaces (au-delà du socle opérationnel)
 
+Toutes les interfaces web ont été supprimées le 30 août 2026 (voir la
+note en tête de document). Ce tableau ne décrit donc plus que ce qui
+reste réellement en place derrière chaque ancien nom de surface.
+
 | Surface | Statut | Flag, défaut | Notes |
 |---|---|---|---|
-| Console scientifique | Intégré et publié ; stabilisation 4A.3 close pour ce périmètre | `SCIENCE_CONSOLE_ENABLED`, `false` | Voir §4A.3 ci-dessus |
-| Console territoriale/Client | **Supprimée** (30 août 2026) | — | Code, routes, tests et flag entièrement retirés ; voir le chantier de consolidation des interfaces web |
-| BLUE | Partiellement implémenté (fondation active, enrichie jusqu'à la migration `0032`) | `BLUE_CENTER_ENABLED`, `false` | Voir Phase D ci-dessous et [`docs/architecture.md#blue-forecast-evidence-center`](docs/architecture.md#blue-forecast-evidence-center) ; **insuffisant à lui seul pour déclarer une validation prospective complète** |
-| Watch | Présent dans `Unreleased`, expérimental | `WATCH_CONSOLE_ENABLED`, `false` | Implémenté (commit Watch + correctif de fraîcheur), non encore publié dans une release taguée, désactivé par défaut, nécessite la stabilisation transverse ci-dessus avant tout élargissement |
+| Dashboard opérationnel | **Interface supprimée** (30 août 2026) | — | L'API sous-jacente (`/risk`, `/alerts`, `/sources`, `/stream`) reste active ; `/` renvoie `404` |
+| Console scientifique | **Interface supprimée** (30 août 2026) | — | Code, routes `/api/science/*`, assets et tests entièrement retirés ; plus aucun moyen HTTP d'inspecter sources/qualité/pipelines/modèles/observabilité |
+| Console territoriale/Client | **Supprimée** (30 août 2026) | — | Retrait antérieur, inchangé |
+| BLUE | **Interface supprimée** (30 août 2026) ; **collecte de données toujours active** | `BLUE_CENTER_ENABLED`, `false` (côté `engine`/scheduler uniquement) | Routes `/blue`, `/api/blue/*` retirées ; `poll_blue_evidence` et la capture du bulletin quotidien continuent d'alimenter le schéma `blue.*` en base — voir [`docs/architecture.md`](docs/architecture.md) |
+| Watch | **Interface supprimée** (30 août 2026) | — | Code, routes `/api/watch/*`, assets et tests entièrement retirés |
 
 ## Open-source track
 

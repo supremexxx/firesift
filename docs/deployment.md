@@ -39,9 +39,9 @@ Key production settings:
   `fixture` is for local development only.
 - `FIRMS_MAP_KEY`, `METEOFRANCE_API_KEY` — real upstream credentials, never
   committed.
-- `SCIENCE_CONSOLE_ENABLED` — keep `false` until you have put your own
-  authentication in front of `/science` and `/api/science/*` (see
-  [`docs/api.md`](api.md)).
+- `BLUE_CENTER_ENABLED` — no longer gates any HTTP route (the interface
+  was removed, see [`docs/api.md`](api.md)); it only controls whether the
+  scheduler keeps archiving BLUE forecast evidence in the background.
 - `TERRITORY_GEOJSON_PATH`, `TERRITORY_CODES`, `AOI_BBOX`, `H3_RESOLUTION`
   — define the area of interest; do not silently widen an AOI beyond what
   its static layers actually cover (see the note about not publishing

@@ -82,12 +82,10 @@ if [[ "${image}" == \"*\" || "${image}" == \'*\' ]]; then
   image="${image:1:${#image}-2}"
 fi
 : "${image:?PYRORISK_IMAGE is missing from deploy/oracle/.env}"
-science_console="$(env_file_value SCIENCE_CONSOLE_ENABLED)"
 docker build \
   --build-arg "FIRESIFT_GIT_COMMIT=${revision}" \
   --build-arg "OCI_REVISION=${revision}" \
   --build-arg "OCI_CREATED=${created_at}" \
-  --build-arg "FIRESIFT_SCIENCE_CONSOLE=${science_console:-false}" \
   --tag "${image}" \
   "${remote_dir}"
 image_digest="$(docker image inspect "${image}" --format '{{.Id}}')"

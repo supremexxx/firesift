@@ -26,18 +26,12 @@ const DEFAULT_RISK_W_WUI: &str = "0.25";
 const DEFAULT_RISK_W_ROAD: &str = "0.2";
 const DEFAULT_RISK_W_AGRI: &str = "0.15";
 const DEFAULT_API_BIND: &str = "0.0.0.0:8080";
-/// Phase 4A: the read-only scientific console's routes are only
-/// mounted when this is `true`. Defaults to `false` because no
-/// authentication exists anywhere in this API yet -- this flag is a
-/// deployment gate, not real access control (see
-/// `SCIENTIFIC_CONSOLE_ARCHITECTURE.md` for the honest limitation and
-/// the Phase 4B follow-up).
-const DEFAULT_SCIENCE_CONSOLE_ENABLED: &str = "false";
-/// The public wildfire-risk map's routes (`/watch`, `/api/watch/*`) are
-/// only mounted when this is `true`. Defaults to `false` for the same
-/// reason as `SCIENCE_CONSOLE_ENABLED`: a deployment gate, not access
-/// control.
-const DEFAULT_WATCH_CONSOLE_ENABLED: &str = "false";
+/// Gates the scheduler's BLUE evidence-archiving tasks (`poll_blue_evidence`,
+/// the daily bulletin capture in `poll_forecast`) -- data collection, not
+/// an HTTP interface. All bundled web interfaces (including BLUE's) were
+/// removed on 2026-08-30 to be rebuilt from scratch, but this flag is kept
+/// so the evidence archive keeps building in the meantime; see
+/// `ROADMAP.md` for the removal record.
 const DEFAULT_BLUE_CENTER_ENABLED: &str = "false";
 const DEFAULT_BLUE_AI_EVIDENCE_ENABLED: &str = "false";
 const DEFAULT_BLUE_FEUX_DE_FORET_ENABLED: &str = "false";
@@ -69,8 +63,6 @@ pub struct Config {
     pub recompute_interval: Duration,
     pub risk: RiskConfig,
     pub api_bind: SocketAddr,
-    pub science_console_enabled: bool,
-    pub watch_console_enabled: bool,
     pub blue_center_enabled: bool,
     pub blue_ai_evidence_enabled: bool,
     pub blue_feux_de_foret_enabled: bool,
@@ -136,14 +128,6 @@ impl Config {
                 w_agri: parse_env("RISK_W_AGRI", DEFAULT_RISK_W_AGRI)?,
             },
             api_bind: parse_env("API_BIND", DEFAULT_API_BIND)?,
-            science_console_enabled: parse_env(
-                "SCIENCE_CONSOLE_ENABLED",
-                DEFAULT_SCIENCE_CONSOLE_ENABLED,
-            )?,
-            watch_console_enabled: parse_env(
-                "WATCH_CONSOLE_ENABLED",
-                DEFAULT_WATCH_CONSOLE_ENABLED,
-            )?,
             blue_center_enabled: parse_env("BLUE_CENTER_ENABLED", DEFAULT_BLUE_CENTER_ENABLED)?,
             blue_ai_evidence_enabled: parse_env(
                 "BLUE_AI_EVIDENCE_ENABLED",

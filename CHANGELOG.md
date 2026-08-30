@@ -4,6 +4,24 @@ All notable changes to FireSift are documented in this file.
 
 ## [Unreleased]
 
+### Removed
+
+- **Every bundled web interface**: the operational dashboard's HTML
+  shell (`/`, `/dashboard.css`, `/dashboard.js`), the scientific console
+  (`/science`, `/api/science/*`), BLUE's HTTP surface (`/blue`,
+  `/api/blue/*`), Watch (`/watch`, `/api/watch/*`), and the territorial
+  console added and removed earlier in this same `Unreleased` window.
+  None of this had shipped in a tagged release yet, so the entries below
+  describing them are kept as a historical record of work already done,
+  not as a description of the current state — see
+  [`ROADMAP.md`](ROADMAP.md) and [`docs/architecture.md`](docs/architecture.md).
+  The read-only operational API (`/health`, `/config`, `/risk`,
+  `/risk/cell/{h3}`, `/alerts`, `/sources`, `/stream`) is unaffected, and
+  BLUE's scheduler-driven evidence-archiving (`poll_blue_evidence`, the
+  daily bulletin capture) keeps running — this was a presentation-layer
+  removal only, done to rebuild the interface layer from scratch rather
+  than continue reworking it incrementally.
+
 ### Added
 
 - **BLUE forecast-evidence center** (`/blue`, `/api/blue/*`, gated

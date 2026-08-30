@@ -8,30 +8,15 @@
 		-Server
 	}
 
-	@science path /science /science/* /science.css /science.js /api/science /api/science/*
-	@blue path /blue /blue/* /blue.css /blue.js /api/blue /api/blue/*
 	@favicon path /favicon.ico
 
 	handle @favicon {
 		respond 204
 	}
 
-	handle @science {
-		basic_auth {
-			{$SCIENCE_USER} {$SCIENCE_PASSWORD_HASH}
-		}
-
-		reverse_proxy app:8080
-	}
-
-	handle @blue {
-		basic_auth {
-			{$SCIENCE_USER} {$SCIENCE_PASSWORD_HASH}
-		}
-
-		reverse_proxy app:8080
-	}
-
+	# No bundled web interface exists as of 2026-08-30 (all removed, to be
+	# rebuilt from scratch) -- /science and /blue no longer resolve to
+	# anything, so there is nothing left to gate behind Basic Auth here.
 	handle {
 		reverse_proxy app:8080
 	}

@@ -19,9 +19,10 @@ official alert.
 - A research codebase with a documented, versioned scientific foundation:
   labeled datasets, a negative-sampling design, a trained candidate model,
   and a paired historical comparison against the operational model.
-- A platform meant to be inspected, reproduced, and extended — the
-  scientific console (`/science`) exposes dataset, pipeline, and model
-  registry state as structured, read-only data, not just a dashboard.
+- A platform meant to be inspected, reproduced, and extended — dataset,
+  pipeline, and model registry state are all real and queryable at the
+  database level, even though no bundled web interface exposes them
+  right now (see [Interfaces](#interfaces)).
 
 ## What FireSift is not
 
@@ -53,24 +54,18 @@ official alert.
   static features.
 - Explainable scoring: every risk cell can be broken down into its
   contributing factors via `GET /risk/cell/{h3}`.
-- A read-only scientific console exposing dataset versions, pipeline and
-  data-quality status, model registry state, and system integrity.
 - An experimental, non-active `gbm_isotonic_v2` candidate model, trained
   and evaluated but never served — see [Scientific status](#scientific-status).
 
 ## Interfaces
 
-Five HTTP surfaces, one always on and four behind a deployment flag that
-is **not** authentication — see
+**None right now.** The operational dashboard, the scientific console,
+BLUE, and Watch were all removed on 2026-08-30 — the project owner wants
+the web interface layer rebuilt from scratch. The HTTP API itself is
+still fully live and unauthenticated (`/health`, `/risk`, `/alerts`,
+`/sources`, `/stream`, `/config`); `/` returns `404`. See
 [`docs/architecture.md#api-surfaces`](docs/architecture.md#api-surfaces)
-for the full picture, including expected reverse-proxy protection:
-
-| Interface | Flag | Status |
-|---|---|---|
-| Operational dashboard | always on | Public |
-| Scientific console (`/science`) | `SCIENCE_CONSOLE_ENABLED` | Experimental, disabled by default |
-| BLUE forecast-evidence center (`/blue`) | `BLUE_CENTER_ENABLED` | Experimental, partial foundation — see [Scientific status](#scientific-status) |
-| Watch public map (`/watch`) | `WATCH_CONSOLE_ENABLED` | Experimental, present in `Unreleased`, disabled by default |
+and [`ROADMAP.md`](ROADMAP.md) for detail and what's next.
 
 ## Architecture
 
@@ -105,7 +100,6 @@ your machine is already listening there, either stop that service or point
 The service then answers on:
 
 - `GET http://localhost:8080/health` — service and data-source health;
-- `GET http://localhost:8080/` — operational dashboard;
 - `GET /risk` — GeoJSON H3 risk surfaces;
 - `GET /alerts` — cells above a configured threshold;
 - `GET /risk/cell/{h3}` — explained score for one cell;
@@ -115,18 +109,6 @@ The default profile (`DATA_PROFILE=fixture`) runs entirely on the small,
 versioned fixtures under `testdata/` — no API keys or real datasets
 required. `DATA_PROFILE=production` refuses fixtures, missing static
 layers, and silent ingestion failures; see [`docs/deployment.md`](docs/deployment.md).
-
-### Local demo: scientific console
-
-```sh
-docker compose up -d
-cargo run -p engine -- preview-science-console --bind 127.0.0.1:8081
-```
-
-Then open <http://127.0.0.1:8081/science>. This preview mode runs without
-the scheduler and without loading a model. In a normal deployment the
-console is mounted at `/science` only when `SCIENCE_CONSOLE_ENABLED=true`
-(default `false`) — see [`docs/api.md`](docs/api.md).
 
 ## API
 
@@ -159,11 +141,13 @@ candidate remains inactive: [`docs/models.md`](docs/models.md).
   ([`docs/research/reports/SHADOW_SCORING_DESIGN.md`](docs/research/reports/SHADOW_SCORING_DESIGN.md))
   but nothing runs it yet.
 - **BLUE is a partial prospective-validation foundation, not a complete
-  system.** It archives immutable `+24h`/`+48h` forecast evidence and
-  supports terrain/community-reported confirmations, but reverse
-  matching for recall/specificity and a published aggregate track record
-  do not exist yet — see
-  [`docs/architecture.md#blue-forecast-evidence-center`](docs/architecture.md#blue-forecast-evidence-center).
+  system, and currently has no interface.** Its scheduler tasks still
+  archive immutable `+24h`/`+48h` forecast evidence and
+  terrain/community-reported confirmations into the database, but the
+  `/blue`/`/api/blue/*` routes that displayed them were removed on
+  2026-08-30 pending a rebuilt interface — see
+  [`docs/architecture.md`](docs/architecture.md) and
+  [`ROADMAP.md`](ROADMAP.md).
 
 ## Limitations
 
