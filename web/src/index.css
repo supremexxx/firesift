@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens for FireSift's visual identity: a restrained palette
+ * (near-black/near-white base, a single ember accent tying back to the
+ * project's subject) and a generous type scale, in support of the
+ * clean, spacious aesthetic the interface is meant to have. These are
+ * tokens only -- no components are built here.
+ */
+@theme {
+  --color-ink: #0a0a0a;
+  --color-paper: #fafaf9;
+  --color-muted: #6b7280;
+  --color-line: #e7e5e4;
+  --color-accent: #ff5a1f;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: light dark;
+  }
+
+  body {
+    @apply bg-paper text-ink antialiased;
+  }
+}
