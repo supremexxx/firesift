@@ -221,7 +221,10 @@ mod tests {
             .find(|score| !score.top_factors.is_empty())
             .expect("one explainable score")
             .cell;
-        let app = api::router(AppState::new(store, grid, updates));
+        let app = api::router(
+            AppState::new(store, grid, updates),
+            "testdata/no-such-web-assets-dir",
+        );
         assert_complete_api(&app, cells.len(), detail_cell).await;
     }
 

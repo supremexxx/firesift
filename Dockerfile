@@ -22,6 +22,14 @@ RUN --mount=type=cache,id=cargo-registry-${TARGETARCH},target=/usr/local/cargo/r
     cargo build --locked --release -p engine && \
     cp /src/target/release/pyrorisk /tmp/pyrorisk
 
+FROM node:22-bookworm-slim AS web-builder
+
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web ./
+RUN npm run build
+
 FROM debian:bookworm-slim AS runtime
 
 ARG OCI_REVISION=unknown
@@ -44,10 +52,12 @@ RUN apt-get update && \
 WORKDIR /app
 COPY --from=builder /tmp/pyrorisk /usr/local/bin/pyrorisk
 COPY --chown=pyrorisk:pyrorisk testdata ./testdata
+COPY --from=web-builder --chown=pyrorisk:pyrorisk /web/dist ./web/dist
 
 USER pyrorisk
 
 ENV API_BIND=0.0.0.0:8080 \
+    WEB_ASSETS_DIR=/app/web/dist \
     RUST_LOG=info,pyrorisk=info
 
 EXPOSE 8080

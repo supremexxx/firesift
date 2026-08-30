@@ -1399,7 +1399,7 @@ async fn run(config: Config) -> anyhow::Result<()> {
             .collect();
         app_state = app_state.with_operational_cells(cells);
     }
-    axum::serve(listener, api::router(app_state))
+    axum::serve(listener, api::router(app_state, &config.web_assets_dir))
         .with_graceful_shutdown(shutdown_signal())
         .await
         .context("API server failed")
