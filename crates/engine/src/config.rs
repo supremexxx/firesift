@@ -26,6 +26,14 @@ const DEFAULT_RISK_W_WUI: &str = "0.25";
 const DEFAULT_RISK_W_ROAD: &str = "0.2";
 const DEFAULT_RISK_W_AGRI: &str = "0.15";
 const DEFAULT_API_BIND: &str = "0.0.0.0:8080";
+/// Directory of the built web frontend (`web/dist` after `npm run build`
+/// in `web/`) served as static files, with an `index.html` fallback for
+/// client-side routing. Defaults to a path relative to the working
+/// directory for local development; the container image sets this to an
+/// absolute path (see `Dockerfile`). Missing this directory is not an
+/// error -- requests for it simply 404, so the API works standalone
+/// without building the frontend first.
+const DEFAULT_WEB_ASSETS_DIR: &str = "web/dist";
 /// Gates the scheduler's BLUE evidence-archiving tasks (`poll_blue_evidence`,
 /// the daily bulletin capture in `poll_forecast`) -- data collection, not
 /// an HTTP interface. All bundled web interfaces (including BLUE's) were
@@ -63,6 +71,7 @@ pub struct Config {
     pub recompute_interval: Duration,
     pub risk: RiskConfig,
     pub api_bind: SocketAddr,
+    pub web_assets_dir: PathBuf,
     pub blue_center_enabled: bool,
     pub blue_ai_evidence_enabled: bool,
     pub blue_feux_de_foret_enabled: bool,
@@ -128,6 +137,7 @@ impl Config {
                 w_agri: parse_env("RISK_W_AGRI", DEFAULT_RISK_W_AGRI)?,
             },
             api_bind: parse_env("API_BIND", DEFAULT_API_BIND)?,
+            web_assets_dir: PathBuf::from(env_or_default("WEB_ASSETS_DIR", DEFAULT_WEB_ASSETS_DIR)),
             blue_center_enabled: parse_env("BLUE_CENTER_ENABLED", DEFAULT_BLUE_CENTER_ENABLED)?,
             blue_ai_evidence_enabled: parse_env(
                 "BLUE_AI_EVIDENCE_ENABLED",

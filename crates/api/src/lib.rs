@@ -1,6 +1,6 @@
 //! Read-only HTTP and WebSocket API for `FireSift`.
 
-use std::{str::FromStr as _, sync::Arc};
+use std::{path::Path as StdPath, str::FromStr as _, sync::Arc};
 
 use axum::{
     Json, Router,
@@ -20,7 +20,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, json};
 use store::{FwiSnapshot, SourceStatusRow, Store, StoredRiskScore};
 use tokio::sync::broadcast;
-use tower_http::trace::TraceLayer;
+use tower_http::{
+    services::{ServeDir, ServeFile},
+    trace::TraceLayer,
+};
 
 const MAX_RISK_FEATURES: u32 = 10_000;
 const MAX_ALERTS: u32 = 500;
@@ -140,13 +143,24 @@ struct RiskUpdateCell {
 
 /// Builds the complete application router.
 ///
-/// This is the bare read-only operational API -- `/health`, `/config`,
-/// `/risk`, `/risk/cell/{h3}`, `/alerts`, `/sources`, `/stream`. Every
-/// bundled web interface (the dashboard, the scientific console, BLUE,
-/// Watch) was removed on 2026-08-30 to be rebuilt from scratch; this API
-/// is the stable foundation any future interface will consume. See
-/// `ROADMAP.md` for the removal record.
-pub fn router(state: AppState) -> Router {
+/// The read-only operational API -- `/health`, `/config`, `/risk`,
+/// `/risk/cell/{h3}`, `/alerts`, `/sources`, `/stream` -- plus the built
+/// web frontend (see `ROADMAP.md` for why every previous bundled
+/// interface was removed on 2026-08-30 and is being rebuilt from
+/// scratch). Any request that doesn't match an API route falls back to
+/// serving `web_assets_dir` as static files, with `index.html` served
+/// (as a normal `200`, not a `404` -- `ServeDir::not_found_service`
+/// forces the status to `404` even on a successful fallback, which is
+/// wrong for a route a client-side router legitimately handles) for any
+/// path that isn't a real file -- the standard single-page-app pattern.
+/// If `web_assets_dir` doesn't exist (the frontend hasn't been built),
+/// that fallback itself 404s instead of erroring -- the API works
+/// standalone either way.
+pub fn router(state: AppState, web_assets_dir: impl AsRef<StdPath>) -> Router {
+    let web_assets_dir = web_assets_dir.as_ref();
+    let spa =
+        ServeDir::new(web_assets_dir).fallback(ServeFile::new(web_assets_dir.join("index.html")));
+
     Router::new()
         .route("/health", get(health))
         .route("/config", get(api_config))
@@ -155,8 +169,8 @@ pub fn router(state: AppState) -> Router {
         .route("/alerts", get(alerts))
         .route("/sources", get(sources))
         .route("/stream", get(stream))
-        .fallback(not_found)
         .method_not_allowed_fallback(method_not_allowed)
+        .fallback_service(spa)
         .with_state(state)
         .layer(TraceLayer::new_for_http())
 }
@@ -172,10 +186,6 @@ async fn api_config(State(state): State<AppState>) -> Json<ApiConfigResponse> {
         ],
         h3_resolution: u8::from(state.grid.resolution()),
     })
-}
-
-async fn not_found() -> ApiError {
-    ApiError::not_found("not_found", "route not found")
 }
 
 async fn method_not_allowed() -> ApiError {
