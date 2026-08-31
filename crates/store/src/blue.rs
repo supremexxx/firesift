@@ -12,10 +12,12 @@ const BULLETIN_HOUR_UTC: u32 = 6;
 const ALERT_THRESHOLD: f32 = 0.65;
 const CRITICAL_THRESHOLD: f32 = 0.75;
 const PROACTIVE_EVIDENCE_LIMIT: usize = 16;
-const NATIONAL_EVIDENCE_QUOTA: usize = 6;
-const TERRITORIAL_EVIDENCE_QUOTA: usize = 6;
+const PERSISTENT_EVIDENCE_QUOTA: usize = 4;
+const NEW_THRESHOLD_EVIDENCE_QUOTA: usize = 4;
 const ACCELERATION_EVIDENCE_QUOTA: usize = 4;
+const TERRITORIAL_EVIDENCE_QUOTA: usize = 4;
 const REACTIVE_EVIDENCE_LIMIT: i64 = 4;
+const STRONG_ACCELERATION_DELTA: f32 = 0.08;
 
 #[derive(Clone, Debug)]
 pub struct BlueForecastContext {
@@ -240,6 +242,7 @@ struct BlueEvidenceCandidate {
     department_code: Option<String>,
     selection_score: f32,
     previous_score: Option<f32>,
+    recently_selected: bool,
     alert_24h_id: Option<String>,
     alert_48h_id: Option<String>,
     research_24h: Option<DateTime<Utc>>,
@@ -646,24 +649,34 @@ impl Store {
             return Ok(0);
         }
         let candidates: Vec<BlueEvidenceCandidate> = sqlx::query_as(
-            "WITH previous_bulletin AS (
+            "WITH current_bulletin AS (
+                SELECT id,issued_at,bulletin_date
+                FROM blue.forecast_bulletins WHERE id=$1::uuid
+             ), previous_bulletin AS (
                 SELECT previous.id
-                FROM blue.forecast_bulletins current
+                FROM current_bulletin current
                 JOIN LATERAL (
                     SELECT id FROM blue.forecast_bulletins
                     WHERE status='published' AND issued_at<current.issued_at
                     ORDER BY issued_at DESC LIMIT 1
                 ) previous ON TRUE
-                WHERE current.id=$1::uuid
              ), previous_scores AS (
                 SELECT a.insee_code,MAX(a.alert_index) previous_score
                 FROM blue.forecast_alerts a
                 WHERE a.bulletin_id=(SELECT id FROM previous_bulletin)
                 GROUP BY a.insee_code
+             ), recent_selections AS (
+                SELECT c.insee_code,MAX(b.bulletin_date) last_selected_date
+                FROM blue.evidence_cases c
+                JOIN blue.forecast_bulletins b ON b.id=c.bulletin_id
+                WHERE b.issued_at<(SELECT issued_at FROM current_bulletin)
+                GROUP BY c.insee_code
              ), per_commune AS (
                 SELECT a.bulletin_id,a.insee_code,MAX(a.commune_name) commune_name,
                     MAX(a.department_code) department_code,MAX(a.alert_index) selection_score,
                     MAX(p.previous_score) previous_score,
+                    COALESCE(MAX(r.last_selected_date)>=MAX(current.bulletin_date)-3,FALSE)
+                        recently_selected,
                     (array_agg(a.id ORDER BY a.alert_index DESC)
                         FILTER (WHERE a.horizon='hours_24'))[1] alert_24h_id,
                     (array_agg(a.id ORDER BY a.alert_index DESC)
@@ -671,13 +684,15 @@ impl Store {
                     MAX(a.valid_at) FILTER (WHERE a.horizon='hours_24') research_24h,
                     MAX(a.valid_at) FILTER (WHERE a.horizon='hours_48') research_48h
                 FROM blue.forecast_alerts a
+                JOIN current_bulletin current ON current.id=a.bulletin_id
                 LEFT JOIN previous_scores p ON p.insee_code=a.insee_code
+                LEFT JOIN recent_selections r ON r.insee_code=a.insee_code
                 WHERE a.bulletin_id=$1::uuid
                 GROUP BY a.bulletin_id,a.insee_code
              )
              SELECT bulletin_id::text,insee_code,commune_name,department_code,
-                selection_score,previous_score,alert_24h_id::text,alert_48h_id::text,
-                research_24h,research_48h
+                selection_score,previous_score,recently_selected,
+                alert_24h_id::text,alert_48h_id::text,research_24h,research_48h
              FROM per_commune",
         )
         .bind(bulletin_id)
@@ -1199,13 +1214,66 @@ fn select_blue_evidence_candidates(
     let mut selected = Vec::with_capacity(target);
     let mut seen = HashSet::with_capacity(target);
 
-    for candidate in ranked.iter().take(NATIONAL_EVIDENCE_QUOTA) {
+    // Keep a small stable baseline for the highest persistent risks. The
+    // remaining proactive slots are deliberately rotated so the evidence
+    // sample does not become a daily copy of the same national ranking.
+    for candidate in ranked.iter().take(PERSISTENT_EVIDENCE_QUOTA) {
         add_blue_candidate(&mut selected, &mut seen, candidate, "national_top", target);
+    }
+
+    // A missing previous score means the commune has just crossed the alert
+    // threshold. These cases are more informative than another unchanged
+    // member of the persistent top ranking.
+    let new_threshold = ranked
+        .iter()
+        .filter(|candidate| {
+            candidate.previous_score.is_none()
+                && !candidate.recently_selected
+                && !seen.contains(&candidate.insee_code)
+        })
+        .take(NEW_THRESHOLD_EVIDENCE_QUOTA)
+        .cloned()
+        .collect::<Vec<_>>();
+    for candidate in &new_threshold {
+        add_blue_candidate(
+            &mut selected,
+            &mut seen,
+            candidate,
+            "risk_acceleration",
+            target,
+        );
+    }
+
+    let mut acceleration = ranked
+        .iter()
+        .filter(|candidate| {
+            !seen.contains(&candidate.insee_code)
+                && candidate.previous_score.is_some()
+                && rotation_eligible(candidate)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    acceleration.sort_by(|left, right| {
+        let left_delta = left.selection_score - left.previous_score.unwrap_or(ALERT_THRESHOLD);
+        let right_delta = right.selection_score - right.previous_score.unwrap_or(ALERT_THRESHOLD);
+        right_delta
+            .total_cmp(&left_delta)
+            .then_with(|| right.selection_score.total_cmp(&left.selection_score))
+            .then_with(|| left.insee_code.cmp(&right.insee_code))
+    });
+    for candidate in acceleration.iter().take(ACCELERATION_EVIDENCE_QUOTA) {
+        add_blue_candidate(
+            &mut selected,
+            &mut seen,
+            candidate,
+            "risk_acceleration",
+            target,
+        );
     }
 
     let mut department_leaders = BTreeMap::<String, BlueEvidenceCandidate>::new();
     for candidate in &ranked {
-        if seen.contains(&candidate.insee_code) {
+        if seen.contains(&candidate.insee_code) || !rotation_eligible(candidate) {
             continue;
         }
         let Some(department) = candidate.department_code.as_ref() else {
@@ -1232,33 +1300,29 @@ fn select_blue_evidence_candidates(
         );
     }
 
-    let mut acceleration = ranked
+    // Fill a short quota without breaking the three-day cooldown. This is
+    // mostly relevant on unusually small bulletins.
+    for candidate in ranked
         .iter()
-        .filter(|candidate| !seen.contains(&candidate.insee_code))
-        .cloned()
-        .collect::<Vec<_>>();
-    acceleration.sort_by(|left, right| {
-        let left_delta = left.selection_score - left.previous_score.unwrap_or(ALERT_THRESHOLD);
-        let right_delta = right.selection_score - right.previous_score.unwrap_or(ALERT_THRESHOLD);
-        right_delta
-            .total_cmp(&left_delta)
-            .then_with(|| right.selection_score.total_cmp(&left.selection_score))
-            .then_with(|| left.insee_code.cmp(&right.insee_code))
-    });
-    for candidate in acceleration.iter().take(ACCELERATION_EVIDENCE_QUOTA) {
-        add_blue_candidate(
-            &mut selected,
-            &mut seen,
-            candidate,
-            "risk_acceleration",
-            target,
-        );
+        .filter(|candidate| rotation_eligible(candidate))
+    {
+        add_blue_candidate(&mut selected, &mut seen, candidate, "national_top", target);
     }
 
+    // The bulletin must still produce a complete deterministic sample if too
+    // few fresh communes exist. Persistent repeats are therefore the final,
+    // explicit fallback rather than the default behaviour.
     for candidate in &ranked {
         add_blue_candidate(&mut selected, &mut seen, candidate, "national_top", target);
     }
     selected
+}
+
+fn rotation_eligible(candidate: &BlueEvidenceCandidate) -> bool {
+    !candidate.recently_selected
+        || candidate.previous_score.is_some_and(|previous| {
+            candidate.selection_score - previous >= STRONG_ACCELERATION_DELTA
+        })
 }
 
 fn add_blue_candidate(
@@ -1478,7 +1542,8 @@ mod performance_tests {
         index: usize,
         department: &str,
         score: f32,
-        previous: f32,
+        previous: Option<f32>,
+        recently_selected: bool,
     ) -> BlueEvidenceCandidate {
         BlueEvidenceCandidate {
             bulletin_id: "00000000-0000-0000-0000-000000000001".to_owned(),
@@ -1486,7 +1551,8 @@ mod performance_tests {
             commune_name: format!("Commune {index}"),
             department_code: Some(department.to_owned()),
             selection_score: score,
-            previous_score: Some(previous),
+            previous_score: previous,
+            recently_selected,
             alert_24h_id: Some(format!("00000000-0000-0000-0000-{index:012}")),
             alert_48h_id: None,
             research_24h: None,
@@ -1547,11 +1613,17 @@ mod performance_tests {
 
     #[test]
     fn evidence_selection_combines_national_territorial_and_acceleration_cases() {
-        let candidates = (0..24)
+        let candidates = (0..32)
             .map(|index| {
                 let score = 0.99 - f32::from(u16::try_from(index).expect("small index")) * 0.01;
-                let previous = if index >= 12 { 0.65 } else { score - 0.01 };
-                candidate(index, &format!("{:02}", index % 12), score, previous)
+                let previous = if (4..8).contains(&index) {
+                    None
+                } else if (8..12).contains(&index) {
+                    Some(score - 0.10)
+                } else {
+                    Some(score - 0.01)
+                };
+                candidate(index, &format!("{:02}", index % 16), score, previous, false)
             })
             .collect::<Vec<_>>();
         let selected = select_blue_evidence_candidates(&candidates, 20);
@@ -1561,7 +1633,7 @@ mod performance_tests {
                 .iter()
                 .filter(|(_, reason)| *reason == "national_top")
                 .count(),
-            NATIONAL_EVIDENCE_QUOTA
+            PERSISTENT_EVIDENCE_QUOTA
         );
         assert_eq!(
             selected
@@ -1575,7 +1647,7 @@ mod performance_tests {
                 .iter()
                 .filter(|(_, reason)| *reason == "risk_acceleration")
                 .count(),
-            ACCELERATION_EVIDENCE_QUOTA
+            NEW_THRESHOLD_EVIDENCE_QUOTA + ACCELERATION_EVIDENCE_QUOTA
         );
         assert_eq!(
             selected
@@ -1585,5 +1657,37 @@ mod performance_tests {
                 .len(),
             selected.len()
         );
+    }
+
+    #[test]
+    fn evidence_selection_applies_cooldown_outside_persistent_baseline() {
+        let candidates = (0..28)
+            .map(|index| {
+                let score = 0.99 - f32::from(u16::try_from(index).expect("small index")) * 0.01;
+                candidate(
+                    index,
+                    &format!("{:02}", index % 14),
+                    score,
+                    Some(score - 0.01),
+                    index < 12,
+                )
+            })
+            .collect::<Vec<_>>();
+        let selected = select_blue_evidence_candidates(&candidates, 20);
+        assert_eq!(selected.len(), PROACTIVE_EVIDENCE_LIMIT);
+        assert!(
+            selected
+                .iter()
+                .skip(PERSISTENT_EVIDENCE_QUOTA)
+                .all(|(item, _)| !item.recently_selected)
+        );
+    }
+
+    #[test]
+    fn strong_acceleration_can_break_cooldown() {
+        let item = candidate(1, "01", 0.90, Some(0.80), true);
+        assert!(rotation_eligible(&item));
+        let stable = candidate(2, "02", 0.90, Some(0.87), true);
+        assert!(!rotation_eligible(&stable));
     }
 }
