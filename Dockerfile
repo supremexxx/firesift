@@ -22,7 +22,7 @@ RUN --mount=type=cache,id=cargo-registry-${TARGETARCH},target=/usr/local/cargo/r
     cargo build --locked --release -p engine && \
     cp /src/target/release/pyrorisk /tmp/pyrorisk
 
-FROM node:22-bookworm-slim AS web-builder
+FROM node:26-bookworm-slim AS web-builder
 
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
