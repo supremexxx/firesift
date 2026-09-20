@@ -6,8 +6,10 @@ CREATE TABLE ml.model_shadow_scores (
     valid_at TIMESTAMPTZ NOT NULL,
     horizon TEXT NOT NULL,
     h3 BIGINT NOT NULL,
-    active_model_id BIGINT NOT NULL REFERENCES human_model_versions(id) ON DELETE RESTRICT,
-    candidate_model_id BIGINT NOT NULL REFERENCES ml.model_candidate_registry(id) ON DELETE RESTRICT,
+    -- Deliberately scalar provenance fields: P3 must not block rollback of
+    -- the independently versioned v1/candidate registries.
+    active_model_id BIGINT NOT NULL,
+    candidate_model_id BIGINT NOT NULL,
     active_score DOUBLE PRECISION NOT NULL,
     candidate_score DOUBLE PRECISION,
     score_diff DOUBLE PRECISION,
