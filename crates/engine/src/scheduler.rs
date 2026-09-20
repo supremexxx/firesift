@@ -226,6 +226,21 @@ async fn poll_forecast(
                         "daily dense scientific archive failed; operational forecast remains published"
                     ),
                 }
+                match crate::shadow_scoring::record_forecast_batch(
+                    &store,
+                    &config,
+                    summary.computed_at,
+                )
+                .await
+                {
+                    Ok(0) => {}
+                    Ok(rows) => {
+                        tracing::info!(rows, "P3 shadow scores recorded; v1 serving unchanged");
+                    }
+                    Err(error) => {
+                        tracing::error!(%error, "P3 shadow scoring failed safely after v1 forecast");
+                    }
+                }
                 if config.blue_center_enabled {
                     let context = BlueForecastContext {
                         environment: std::env::var("ERYTHEON_ENVIRONMENT")

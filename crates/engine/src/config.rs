@@ -44,6 +44,8 @@ const DEFAULT_BLUE_CENTER_ENABLED: &str = "false";
 const DEFAULT_BLUE_AI_EVIDENCE_ENABLED: &str = "false";
 const DEFAULT_BLUE_FEUX_DE_FORET_ENABLED: &str = "false";
 const DEFAULT_BLUE_OPENAI_MODEL: &str = "gpt-4o-mini";
+const DEFAULT_SHADOW_SCORING_ENABLED: &str = "false";
+const DEFAULT_SHADOW_SCORING_LIMIT_PER_HORIZON: &str = "100";
 
 #[derive(Clone, Debug)]
 #[allow(clippy::struct_excessive_bools)]
@@ -77,6 +79,10 @@ pub struct Config {
     pub blue_feux_de_foret_enabled: bool,
     pub openai_api_key: Option<String>,
     pub blue_openai_model: String,
+    /// P3 is deliberately opt-in; it never changes serving responses.
+    pub shadow_scoring_enabled: bool,
+    pub shadow_scoring_limit_per_horizon: i64,
+    pub shadow_scoring_candidate_id: Option<i64>,
 }
 
 impl Config {
@@ -149,6 +155,22 @@ impl Config {
             )?,
             openai_api_key: optional_env("OPENAI_API_KEY"),
             blue_openai_model: env_or_default("BLUE_OPENAI_MODEL", DEFAULT_BLUE_OPENAI_MODEL),
+            shadow_scoring_enabled: parse_env(
+                "SHADOW_SCORING_ENABLED",
+                DEFAULT_SHADOW_SCORING_ENABLED,
+            )?,
+            shadow_scoring_limit_per_horizon: parse_env(
+                "SHADOW_SCORING_LIMIT_PER_HORIZON",
+                DEFAULT_SHADOW_SCORING_LIMIT_PER_HORIZON,
+            )?,
+            shadow_scoring_candidate_id: optional_env("SHADOW_SCORING_CANDIDATE_ID")
+                .map(|value| value.parse())
+                .transpose()
+                .map_err(|_| {
+                    ConfigError::Validation(
+                        "SHADOW_SCORING_CANDIDATE_ID must be an integer".to_owned(),
+                    )
+                })?,
         };
         config.validate()?;
         Ok(config)
@@ -218,6 +240,18 @@ impl Config {
         if self.blue_openai_model.trim().is_empty() {
             return Err(ConfigError::Validation(
                 "BLUE_OPENAI_MODEL must not be blank".to_owned(),
+            ));
+        }
+        if self.shadow_scoring_limit_per_horizon <= 0
+            || self.shadow_scoring_limit_per_horizon > 1_000
+        {
+            return Err(ConfigError::Validation(
+                "SHADOW_SCORING_LIMIT_PER_HORIZON must be between 1 and 1000".to_owned(),
+            ));
+        }
+        if self.shadow_scoring_enabled && self.shadow_scoring_candidate_id.is_none() {
+            return Err(ConfigError::Validation(
+                "SHADOW_SCORING_CANDIDATE_ID is required when shadow scoring is enabled".to_owned(),
             ));
         }
         if !self.weather_idw_power.is_finite() || self.weather_idw_power <= 0.0 {
