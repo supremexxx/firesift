@@ -16,6 +16,7 @@ mod model_experiments;
 mod quality_pipeline;
 mod risk_pipeline;
 mod scheduler;
+mod shadow_scoring;
 mod snapshot_pipeline;
 mod static_layers;
 mod territory;

@@ -19,6 +19,7 @@ mod model_candidate;
 mod observability;
 mod quality;
 mod science;
+mod shadow_scoring;
 
 pub use bdiff::{BdiffImportIds, BdiffImportStart, BdiffPersistenceResult, BdiffTerminalState};
 pub use blue::{
@@ -58,6 +59,7 @@ pub use science::{
     DatasetSplitCount, DatasetVersionSummaryRow, FeatureSnapshotRow, IgnitionEventExplorationRow,
     ImportBatchRow, PipelineRunRow, ScienceOverview, SourceOverviewRow, SystemSummary,
 };
+pub use shadow_scoring::{ShadowInput, ShadowScoreWrite};
 
 /// One complete daily FWI result ready for persistence.
 #[derive(Clone, Copy, Debug)]
