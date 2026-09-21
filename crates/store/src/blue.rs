@@ -1185,6 +1185,43 @@ impl Store {
         tx.commit().await?;
         Ok(())
     }
+
+    /// Records a provider-credit outage without presenting it as a failed
+    /// investigation. The already started audit run remains append-only; the
+    /// case is simply deferred so one exhausted account cannot burn through
+    /// the day's complete evidence queue.
+    ///
+    /// # Errors
+    ///
+    /// Returns a database error when the append-only run record or deferred
+    /// case state cannot be persisted.
+    pub async fn defer_blue_evidence_run_for_quota(
+        &self,
+        case_id: &str,
+        run_id: &str,
+        error: &str,
+    ) -> Result<(), StoreError> {
+        let mut tx = self.pool.begin().await?;
+        let safe_error = error.chars().take(500).collect::<String>();
+        sqlx::query(
+            "UPDATE blue.evidence_runs SET status='failed',error=$2,completed_at=NOW()
+             WHERE id=$1::uuid AND status='started'",
+        )
+        .bind(run_id)
+        .bind(&safe_error)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            "UPDATE blue.evidence_cases SET status='retry_due',
+                next_attempt_at=NOW()+INTERVAL '24 hours',updated_at=NOW()
+             WHERE id=$1::uuid AND status='researching'",
+        )
+        .bind(case_id)
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok(())
+    }
 }
 
 fn rate(numerator: i64, denominator: i64) -> BlueRateMetric {
