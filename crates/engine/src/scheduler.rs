@@ -404,6 +404,20 @@ async fn poll_blue_evidence(config: Config, store: Store) {
                 }
                 Err(error) => {
                     let safe_error = error.to_string();
+                    if error.is_quota_exhausted() {
+                        if let Err(store_error) = store
+                            .defer_blue_evidence_run_for_quota(&claim.id, &run_id, &safe_error)
+                            .await
+                        {
+                            tracing::error!(%store_error, case_id = %claim.id, "failed to defer BLUE evidence review after provider-credit exhaustion");
+                        }
+                        tracing::warn!(
+                            case_id = %claim.id,
+                            commune = %claim.commune_name,
+                            "BLUE evidence review deferred: provider credit is exhausted"
+                        );
+                        break;
+                    }
                     if let Err(store_error) = store
                         .fail_blue_evidence_run(
                             &claim.id,

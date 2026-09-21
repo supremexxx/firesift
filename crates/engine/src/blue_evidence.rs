@@ -595,12 +595,37 @@ pub enum BlueEvidenceError {
     InvalidOutput(String),
 }
 
+impl BlueEvidenceError {
+    /// Whether the provider explicitly rejected the request because the
+    /// configured account has no remaining credit. This is an availability
+    /// condition, not a failed evidence search, so the scheduler must avoid
+    /// consuming the bounded review attempts for every queued commune.
+    pub fn is_quota_exhausted(&self) -> bool {
+        matches!(self, Self::Api(message) if {
+            let message = message.to_ascii_lowercase();
+            message.contains("insufficient_quota") || message.contains("no credits remaining")
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::{TimeZone as _, Utc};
     use store::BlueEvidenceClaim;
 
-    use super::{parse_response, validate_evidence_result};
+    use super::{BlueEvidenceError, parse_response, validate_evidence_result};
+
+    #[test]
+    fn identifies_explicit_provider_credit_exhaustion() {
+        let exhausted = BlueEvidenceError::Api(
+            "Responses API returned 429: insufficient_quota; no credits remaining".to_owned(),
+        );
+        let ordinary_rate_limit =
+            BlueEvidenceError::Api("Responses API returned 429: please retry later".to_owned());
+
+        assert!(exhausted.is_quota_exhausted());
+        assert!(!ordinary_rate_limit.is_quota_exhausted());
+    }
 
     fn claim(commune_name: &str) -> BlueEvidenceClaim {
         BlueEvidenceClaim {
